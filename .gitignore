@@ -1,0 +1,8 @@
+.ipynb_checkpoints
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+01_Data
+04_Writing
+*.ipynb
