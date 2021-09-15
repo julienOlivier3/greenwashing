@@ -6,3 +6,5 @@
 01_Data
 04_Writing
 *.ipynb
+02_Code/config.py
+__pycache__

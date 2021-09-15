@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -21,51 +22,45 @@ from bs4 import BeautifulSoup                      # html parsing
 import re                                          # regular expressions
 from pyprojroot import here                        # relative paths
 
-# # Metadata
+# # Sample pledges
+#
 
-files = ['2010-000000', '2010-000001', '2011-000000', '2012-000000', '2013-000000', '2014-000000', 
-         '2015-000000', '2016-000000', '2017-000000', '2018-000000', '2019-000000', '2020-000000'
-        ]
+df_pledges = pd.read_excel(here('./01_Data/02_Webdata/environmental_pledges.xlsx'), sheet_name='environmental_pledges')
 
-# +
-df_header = pd.DataFrame()
+df_pledges.pledge.sample(3).values
 
-for file in files:
-    
-    print('File:', str(file))
-    with open(here(r'./01_Data/02_Webdata/02_Archive' + '/afid_sample-' + str(file) + '.extracted.warc.gz') , 'rb') as stream:
-        for record in tqdm(ArchiveIterator(stream)):
-            if record.rec_headers['WARC-Type'] == 'warcinfo':
-                pass
-            else:
-                temp = sorted([(i[0], [i[1]]) for i in record.rec_headers.headers if i[0] in ['crefo', 'WARC-Date', 'Content-Type', 'Content-Length', 'WARC-Source-URI']], key=lambda tup: tup[0], reverse=True) 
-                df_temp = pd.DataFrame.from_dict(dict(temp))
-                df_header = df_header.append(df_temp)
-    stream.close()
-df_header.reset_index(drop=True, inplace=True)
+df_pledges.keywords.dropna().values
+
+# + tags=[]
+keywords = [
+    'iso 140001', 
+    'klimaneutral', 'climate neutral',
+    'co2 neutral', 'co2 frei', 'carbon free', 'carbon neutral',
+    'netto null', 'net zero',
+    'klimapositiv', 'climate positive',
+    'co2 bilanz', 'co2 fußabdruck', 'kohlenstoffbilanz', 'carbon footprint',
+    'co2 äquivalent', 'kohlenstoffzertifikat', 'co2 equivalent', 'carbon certificate',
+    'klimaschutz', 'climate protection',
+    'klimamaßnahme', 'klimaschutz', 'climate action', 'climate protection'
+]
 # -
 
-df_header
+# # Extract matching paragraphs from archived corporate website data
 
-df_header['Content-Type'].value_counts(dropna=False)
+# ## By streaming the .warc files 
 
-df_header.iloc[0:4]['WARC-Source-URI'].values
-
-# # Payload 
-
-keywords = [
-    "klimaneutral", "net.{,1}zero"
-]
-
-pattern = '|'.join(f"{k}" for k in keywords)  # Whole words only    
-pattern = re.compile(pattern, flags=re.IGNORECASE)
+import regex
+pattern = ['(%s){e<=1}' % keyword for keyword in keywords] # allow one error in the match for each keyword
+pattern = '|'.join(f"{k}" for k in pattern)                # join keywords into one string
+pattern = regex.compile(pattern, regex.IGNORECASE, regex.V1)         # make string a regex
 pattern
 
-re.findall(pattern, "Wir wollen klimaneutral werden. Ein net zero Ziel.")
+for i in regex.finditer(pattern, "Wir wollen klimaneutral werden. Ein net-zero Ziel."):
+    print(i)
 
-files = [#'2010-000000', '2010-000001', '2011-000000', '2012-000000', '2013-000000', '2014-000000', 
-         #'2015-000000', '2016-000000', '2017-000000', '2018-000000', '2019-000000', 
-    '2020-000000'
+files = [
+    '2010-000000', #'2010-000001', '2011-000000', '2012-000000', '2013-000000', '2014-000000', 
+         #'2015-000000', '2016-000000', '2017-000000', '2018-000000', '2019-000000', '2020-000000'
         ]
 
 # + tags=[]
@@ -73,7 +68,7 @@ for file in files:
     df_payload = pd.DataFrame()
     
     print('File:', str(file))
-     with open(here(r'./01_Data/02_Webdata/02_Archive' + '/afid_sample-' + str(file) + '.extracted.warc.gz') , 'rb') as stream:
+    with open(here(r'./01_Data/02_Webdata/02_Archive' + '/afid_sample-' + str(file) + '.extracted.warc.gz') , 'rb') as stream:
         for i, record in enumerate(tqdm(ArchiveIterator(stream))):
             #if i > 300:
             #    break
@@ -95,10 +90,18 @@ for file in files:
             df_payload.drop_duplicates(subset=['crefo', 'node'], inplace=True)
             
     stream.close()
-    df_payload.to_csv(config.PATH_TO_POJECT_FOLDER + r'\01_Data\02_Webdata\afid_sample_texts-' + str(file) + '.txt', sep='\t', encoding='utf-8', index=False)
+    df_payload.to_csv(here(r'\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8', index=False)
 # -
 
-df_temp = df_payload.drop_duplicates(subset=['node']).reset_index(drop=True).head(10)
-df_temp.style.set_properties(subset=['node'], **{'width': '2000px', 'text-align': 'left'})
+df_payload.to_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8', index=False)
 
-# # Work Bench 
+here(r'\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt')
+
+df_payload.shape
+
+# + tags=[]
+df_temp = df_payload.drop_duplicates(subset=['node']).reset_index(drop=True).sample(10)
+df_temp.style.set_properties(subset=['node'], **{'width': '2000px', 'text-align': 'left'})
+# -
+
+# Very time intensive!
