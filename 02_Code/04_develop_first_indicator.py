@@ -45,22 +45,23 @@ keywords = [
 ]
 # -
 
-# # Extract matching paragraphs from archived corporate website data
+# # Extract matching paragraphs from archived corporate websites
 
 # ## By streaming the .warc files 
 
 import regex
 pattern = ['(%s){e<=1}' % keyword for keyword in keywords] # allow one error in the match for each keyword
 pattern = '|'.join(f"{k}" for k in pattern)                # join keywords into one string
-pattern = regex.compile(pattern, regex.IGNORECASE, regex.V1)         # make string a regex
+pattern = regex.compile(pattern, regex.IGNORECASE)         # make string a regex
 pattern
 
 for i in regex.finditer(pattern, "Wir wollen klimaneutral werden. Ein net-zero Ziel."):
     print(i)
 
 files = [
-    '2010-000000', #'2010-000001', '2011-000000', '2012-000000', '2013-000000', '2014-000000', 
-         #'2015-000000', '2016-000000', '2017-000000', '2018-000000', '2019-000000', '2020-000000'
+    #'2010-000000', '2010-000001', 
+    '2011-000000', '2012-000000', '2013-000000', '2014-000000', 
+    '2015-000000', '2016-000000', '2017-000000', '2018-000000', '2019-000000', '2020-000000'
         ]
 
 # + tags=[]
@@ -90,18 +91,58 @@ for file in files:
             df_payload.drop_duplicates(subset=['crefo', 'node'], inplace=True)
             
     stream.close()
-    df_payload.to_csv(here(r'\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8', index=False)
+    df_payload.to_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8', index=False)
 # -
 
-df_payload.to_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8', index=False)
+# Very time intensive! A spark solution will be inevitable going forward.
 
-here(r'\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt')
+# ## by connecting to a Spark cluster 
 
-df_payload.shape
+# ...
+
+# # Create training data 
+
+# From the extracted html nodes create a training dataset for labelling whether the html node comprises a environmental pledge or not. The training dataset can then be used to develop a text classification model (possibly to finetune a pretrained language model from the transformers family). 
+
+files = [
+    '2010-000000', '2010-000001', 
+    '2011-000000', '2012-000000', '2013-000000', '2014-000000', 
+    '2015-000000', '2016-000000', '2017-000000', '2018-000000', '2019-000000', '2020-000000'
+        ]
+
+df_nodes = pd.concat(
+    [pd.read_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8') for file in files],
+    ignore_index=True)
+
+df_nodes.shape
+
+# Quickly check if all keywords did find a match on the archived websites.
+
+pattern = ['(%s){e<=1}' % keyword for keyword in keywords]                                  # allow one error in the match for each keyword
+pattern_dict = {k: regex.compile(p, regex.IGNORECASE) for (k, p) in zip(keywords, pattern)} # make string a regex
+pattern_dict
 
 # + tags=[]
-df_temp = df_payload.drop_duplicates(subset=['node']).reset_index(drop=True).sample(10)
-df_temp.style.set_properties(subset=['node'], **{'width': '2000px', 'text-align': 'left'})
+from collections import Counter
+result = {}
+for k, p in tqdm(pattern_dict.items()):
+    rows = df_nodes.node.apply(lambda row: regex.search(p, row))
+    n_matches = rows.notnull().sum()
+    result[k] = n_matches
 # -
 
-# Very time intensive!
+result
+
+# Most keywords matched at least once. 
+
+# Conduct some minor cleaning of the matched nodes
+df_nodes = df_nodes.loc[(df_nodes.node.apply(len)>100) & (df_nodes.node.apply(len)<1000)]        # reduce to texts with character boundaries
+df_nodes['node'] = df_nodes.node.apply(lambda x: " ".join(re.split("\s+", x, flags=re.UNICODE))) # remove trailing whitespaces (including unicode whitespaces!)
+
+df_nodes.shape
+
+df_nodes.sample(20).style.set_properties(subset=['node'], **{'width': '2000px', 'text-align': 'left'})
+
+# Looks quite promising! Some of these samples are clear environmental pledges others are not. So write the samples in excel format and start labelling!
+
+df_nodes.to_excel(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\training_data.xlsx', warn=False), sheet_name='to_label', index=False)

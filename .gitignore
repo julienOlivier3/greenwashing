@@ -3,8 +3,10 @@
 .Rhistory
 .RData
 .Ruserdata
-01_Data
+01_Data/01_Firmdata
+01_Data/02_Webdata/01_URLs
 04_Writing
 *.ipynb
+*.gz
 02_Code/config.py
 __pycache__
