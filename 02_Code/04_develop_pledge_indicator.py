@@ -33,7 +33,7 @@ df_pledges.keywords.dropna().values
 
 # + tags=[]
 keywords = [
-    'iso 140001', 
+    'iso 14001', 
     'klimaneutral', 'climate neutral',
     'co2 neutral', 'co2 frei', 'carbon free', 'carbon neutral',
     'netto null', 'net zero',
@@ -91,7 +91,8 @@ for file in files:
             df_payload.drop_duplicates(subset=['crefo', 'node'], inplace=True)
             
     stream.close()
-    df_payload.to_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8', index=False)
+    df_payload.to_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Pledge
+                           _Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8', index=False)
 # -
 
 # Very time intensive! A spark solution will be inevitable going forward.
@@ -111,7 +112,7 @@ files = [
         ]
 
 df_nodes = pd.concat(
-    [pd.read_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8') for file in files],
+    [pd.read_csv(here(r'.\01_Data\02_Webdata\02_Archive\02_Pledge_Indicator\afid_sample_texts-' + str(file) + '.txt'), sep='\t', encoding='utf-8') for file in files],
     ignore_index=True)
 
 df_nodes.shape
@@ -138,6 +139,8 @@ result
 # Conduct some minor cleaning of the matched nodes
 df_nodes = df_nodes.loc[(df_nodes.node.apply(len)>100) & (df_nodes.node.apply(len)<1000)]        # reduce to texts with character boundaries
 df_nodes['node'] = df_nodes.node.apply(lambda x: " ".join(re.split("\s+", x, flags=re.UNICODE))) # remove trailing whitespaces (including unicode whitespaces!)
+df_nodes = df_nodes.drop_duplicates(subset=['node'])                                             # drop duplicated nodes (these may occur if the same website content keeps online over years)
+df_nodes = df_nodes.sample(frac=1)                                                               # shuffle nodes
 
 df_nodes.shape
 
@@ -145,4 +148,4 @@ df_nodes.sample(20).style.set_properties(subset=['node'], **{'width': '2000px', 
 
 # Looks quite promising! Some of these samples are clear environmental pledges others are not. So write the samples in excel format and start labelling!
 
-df_nodes.to_excel(here(r'.\01_Data\02_Webdata\02_Archive\02_Second_Indicator\training_data.xlsx', warn=False), sheet_name='to_label', index=False)
+df_nodes.to_excel(here(r'.\01_Data\02_Webdata\02_Archive\02_Pledge_Indicator\training_data.xlsx', warn=False), sheet_name='to_label', index=False, encoding = "utf-8")
